@@ -42,11 +42,15 @@ extension Archive {
 
     static func makeBackingConfiguration(for url: URL, mode: AccessMode) throws
     -> BackingConfiguration {
+        Archive.log?("Make Backing Configuration")
         let fileManager = FileManager()
         switch mode {
         case .read:
             let fileSystemRepresentation = fileManager.fileSystemRepresentation(withPath: url.path)
+            let pathCheck = fileManager.string(withFileSystemRepresentation: fileSystemRepresentation, length: strlen(url.path))
+            Archive.log?("fopen( \(pathCheck) )")
             guard let archiveFile = fopen(fileSystemRepresentation, "rb") else {
+                Archive.log?("Failed to create archive")
                 throw POSIXError(errno, path: url.path)
             }
             guard let (eocdRecord, zip64EOCD) = Archive.scanForEndOfCentralDirectoryRecord(in: archiveFile) else {
@@ -69,6 +73,7 @@ extension Archive {
         case .update:
             let fileSystemRepresentation = fileManager.fileSystemRepresentation(withPath: url.path)
             guard let archiveFile = fopen(fileSystemRepresentation, "rb+") else {
+                Archive.log?("Failed to update archive")
                 throw POSIXError(errno, path: url.path)
             }
             guard let (eocdRecord, zip64EOCD) = Archive.scanForEndOfCentralDirectoryRecord(in: archiveFile) else {

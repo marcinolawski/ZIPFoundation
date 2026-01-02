@@ -40,6 +40,7 @@ extension Archive {
             try fileManager.createParentDirectoryStructure(for: url)
             let destinationRepresentation = fileManager.fileSystemRepresentation(withPath: url.path)
             guard let destinationFile: FILEPointer = fopen(destinationRepresentation, "wb+") else {
+                Archive.log?("Failed to extract to \(url.path)")
                 throw POSIXError(errno, path: url.path)
             }
             defer { fclose(destinationFile) }
@@ -87,16 +88,19 @@ extension Archive {
     /// - Throws: An error if the destination file cannot be written or the entry contains malformed content.
     public func extract(_ entry: Entry, bufferSize: Int = defaultReadChunkSize, skipCRC32: Bool = false,
                         progress: Progress? = nil, consumer: Consumer) throws -> CRC32 {
+        Archive.log?("Extracting \"\(entry.path)\"")
         guard bufferSize > 0 else {
             throw ArchiveError.invalidBufferSize
         }
         var checksum = CRC32(0)
         let localFileHeader = entry.localFileHeader
+        Archive.log?("Checking for local header data offset")
         guard entry.dataOffset <= .max else { throw ArchiveError.invalidLocalHeaderDataOffset }
         fseeko(self.archiveFile, off_t(entry.dataOffset), SEEK_SET)
         progress?.totalUnitCount = self.totalUnitCountForReading(entry)
         switch entry.type {
         case .file:
+            Archive.log?("Get compression method")
             guard let compressionMethod = CompressionMethod(rawValue: localFileHeader.compressionMethod) else {
                 throw ArchiveError.invalidCompressionMethod
             }
@@ -107,13 +111,16 @@ extension Archive {
                                                               skipCRC32: skipCRC32, progress: progress, with: consumer)
             }
         case .directory:
+            Archive.log?("Reading directory")
             try consumer(Data())
             progress?.completedUnitCount = self.totalUnitCountForReading(entry)
         case .symlink:
+            Archive.log?("Reading symlink")
             checksum = try self.readSymbolicLink(entry: entry, bufferSize: bufferSize,
                                                  skipCRC32: skipCRC32, progress: progress, with: consumer)
 
         }
+        Archive.log?("Returning checksum")
         return checksum
     }
 }

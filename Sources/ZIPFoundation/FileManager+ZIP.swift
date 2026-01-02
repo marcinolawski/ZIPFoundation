@@ -198,6 +198,7 @@ extension FileManager {
         let fileSystemRepresentation = self.fileSystemRepresentation(withPath: url.path)
         let modeT = posixPermissions.uint16Value
         guard lchmod(fileSystemRepresentation, mode_t(modeT)) == 0 else {
+            Archive.log?("Failed to set symlink permissions")
             throw POSIXError(errno, path: url.path)
         }
     }
@@ -206,6 +207,7 @@ extension FileManager {
         let fileSystemRepresentation = self.fileSystemRepresentation(withPath: url.path)
         var fileStat = stat()
         guard lstat(fileSystemRepresentation, &fileStat) == 0 else {
+            Archive.log?("Failed to set symlink modification date")
             throw POSIXError(errno, path: url.path)
         }
 
@@ -216,6 +218,7 @@ extension FileManager {
         ]
         try array.withUnsafeBufferPointer {
             guard lutimes(fileSystemRepresentation, $0.baseAddress) == 0 else {
+                Archive.log?("Failed to set symlink modification datee")
                 throw POSIXError(errno, path: url.path)
             }
         }
@@ -323,6 +326,7 @@ extension FileManager {
 extension POSIXError {
 
     init(_ code: Int32, path: String) {
+        Archive.log?("POSIXError(errno: \(code))")
         let errorCode = POSIXError.Code(rawValue: code) ?? .EPERM
         self = .init(errorCode, userInfo: [NSFilePathErrorKey: path])
     }

@@ -60,6 +60,8 @@ public final class Archive: Sequence {
     typealias DataDescriptor = Entry.DefaultDataDescriptor
     typealias ZIP64DataDescriptor = Entry.ZIP64DataDescriptor
     typealias CentralDirectoryStructure = Entry.CentralDirectoryStructure
+    
+    public static var log: ((String)->())?
 
     /// An error that occurs during reading, creating or updating a ZIP file.
     public enum ArchiveError: Error {
@@ -172,6 +174,7 @@ public final class Archive: Sequence {
     ///   - The file URL _must_ point to a non-existing file for `AccessMode.create`.
     ///   - The file URL _must_ point to an existing file for `AccessMode.update`.
     public init(url: URL, accessMode mode: AccessMode, pathEncoding: String.Encoding? = nil) throws {
+        Archive.log?("Initializing Archive at \(url.path)")
         self.url = url
         self.accessMode = mode
         self.pathEncoding = pathEncoding
@@ -179,6 +182,7 @@ public final class Archive: Sequence {
         self.archiveFile = config.file
         self.endOfCentralDirectoryRecord = config.endOfCentralDirectoryRecord
         self.zip64EndOfCentralDirectory = config.zip64EndOfCentralDirectory
+        Archive.log?("Setting up POSIX buffering")
         setvbuf(self.archiveFile, nil, _IOFBF, Int(defaultPOSIXBufferSize))
     }
 
@@ -275,13 +279,18 @@ public final class Archive: Sequence {
 
     static func scanForEndOfCentralDirectoryRecord(in file: FILEPointer)
     -> EndOfCentralDirectoryStructure? {
+        Archive.log?("Scan For End Of Central Directory Record")
         var eocdOffset: UInt64 = 0
         var index = minEndOfCentralDirectoryOffset
         fseeko(file, 0, SEEK_END)
         let archiveLength = Int64(ftello(file))
-        guard archiveLength >= 0 else { return nil }
+        guard archiveLength >= 0 else {
+            Archive.log?("Return nil")
+            return nil
+        }
 
         while eocdOffset == 0 && index < maxDirectoryEndOffset && index <= archiveLength {
+            Archive.log?("Checking index: \(index)")
             fseeko(file, off_t(archiveLength - index), SEEK_SET)
             var potentialDirectoryEndTag: UInt32 = UInt32()
             fread(&potentialDirectoryEndTag, 1, MemoryLayout<UInt32>.size, file)
@@ -291,10 +300,12 @@ public final class Archive: Sequence {
                     return nil
                 }
                 let zip64EOCD = scanForZIP64EndOfCentralDirectory(in: file, eocdOffset: eocdOffset)
+                Archive.log?("Returning EOCD and ZIP64EOCD")
                 return (eocd, zip64EOCD)
             }
             index += 1
         }
+        Archive.log?("Return nil")
         return nil
     }
 

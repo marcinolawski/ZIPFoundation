@@ -67,6 +67,7 @@ extension Archive {
         case .file:
             let entryFileSystemRepresentation = fileManager.fileSystemRepresentation(withPath: fileURL.path)
             guard let entryFile: FILEPointer = fopen(entryFileSystemRepresentation, "rb") else {
+                Archive.log?("Failed to add entry")
                 throw POSIXError(errno, path: url.path)
             }
             defer { fclose(entryFile) }

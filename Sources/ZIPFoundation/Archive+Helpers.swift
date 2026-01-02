@@ -16,10 +16,13 @@ extension Archive {
 
     func readUncompressed(entry: Entry, bufferSize: Int, skipCRC32: Bool,
                           progress: Progress? = nil, with consumer: Consumer) throws -> CRC32 {
+        Archive.log?("Reading uncompressed entry")
         let size = entry.centralDirectoryStructure.effectiveUncompressedSize
         guard size <= .max else { throw ArchiveError.invalidEntrySize }
+        Archive.log?("Data.consumePart")
         return try Data.consumePart(of: Int64(size), chunkSize: bufferSize, skipCRC32: skipCRC32,
                                     provider: { (_, chunkSize) -> Data in
+                                        Archive.log?("Data.readChunk")
                                         return try Data.readChunk(of: chunkSize, from: self.archiveFile)
                                     }, consumer: { (data) in
                                         if progress?.isCancelled == true { throw ArchiveError.cancelledOperation }
@@ -30,10 +33,13 @@ extension Archive {
 
     func readCompressed(entry: Entry, bufferSize: Int, skipCRC32: Bool,
                         progress: Progress? = nil, with consumer: Consumer) throws -> CRC32 {
+        Archive.log?("Reading compressed entry")
         let size = entry.centralDirectoryStructure.effectiveCompressedSize
         guard size <= .max else { throw ArchiveError.invalidEntrySize }
+        Archive.log?("Data.decompress")
         return try Data.decompress(size: Int64(size), bufferSize: bufferSize, skipCRC32: skipCRC32,
                                    provider: { (_, chunkSize) -> Data in
+                                    Archive.log?("Data.readChunk")
                                     return try Data.readChunk(of: chunkSize, from: self.archiveFile)
                                    }, consumer: { (data) in
                                     if progress?.isCancelled == true { throw ArchiveError.cancelledOperation }
